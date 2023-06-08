@@ -2,7 +2,7 @@ use crate::{
     FontSystem, GlyphDetails, GlyphToRender, GpuCacheStatus, Params, PrepareError, RenderError,
     Resolution, SwashCache, SwashContent, TextArea, TextAtlas,
 };
-use std::{iter, mem::size_of, num::NonZeroU32, slice, sync::Arc};
+use std::{iter, mem::size_of, slice, sync::Arc};
 use wgpu::{
     Buffer, BufferDescriptor, BufferUsages, DepthStencilState, Device, Extent3d, ImageCopyTexture,
     ImageDataLayout, IndexFormat, MultisampleState, Origin3d, Queue, RenderPass, RenderPipeline,
