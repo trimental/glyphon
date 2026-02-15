@@ -2,7 +2,8 @@ use std::hint;
 use cosmic_text::{Attrs, Buffer, Color, Family, FontSystem, Metrics, Shaping, SwashCache};
 use criterion::{criterion_group, criterion_main, Criterion};
 use glyphon::{
-    Cache, ColorMode, Resolution, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport, Weight,
+    Cache, CameraUniform, ColorMode, Mat4, Resolution, TextArea, TextAtlas, TextBounds,
+    TextRenderer, Viewport, Weight,
 };
 use wgpu::{MultisampleState, TextureFormat};
 
@@ -39,6 +40,7 @@ fn run_bench(ctx: &mut Criterion) {
             width: 1000,
             height: 1000,
         },
+        CameraUniform::default(),
     );
 
     for (test_name, text_areas) in &[
@@ -94,6 +96,8 @@ fn run_bench(ctx: &mut Criterion) {
                         },
                         default_color: Color::rgb(0, 0, 0),
                         custom_glyphs: &[],
+                        transform: Mat4::IDENTITY,
+                        zoom: 1.0,
                     })
                     .collect();
 

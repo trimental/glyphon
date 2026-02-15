@@ -18,7 +18,10 @@ pub use custom_glyph::{
 pub use error::{PrepareError, RenderError};
 pub use text_atlas::{ColorMode, TextAtlas};
 pub use text_render::TextRenderer;
-pub use viewport::Viewport;
+pub use viewport::{CameraUniform, Viewport};
+
+// Re-export glam::Mat4 for convenience.
+pub use glam::Mat4;
 
 // Re-export all top-level types from `cosmic-text` for convenience.
 #[doc(no_inline)]
@@ -54,7 +57,7 @@ pub(crate) struct GlyphDetails {
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct GlyphToRender {
-    pos: [i32; 2],
+    pos: [f32; 3],
     dim: [u16; 2],
     uv: [u16; 2],
     color: u32,
@@ -73,10 +76,11 @@ pub struct Resolution {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct Params {
     screen_resolution: Resolution,
     _pad: [u32; 2],
+    view_proj: [[f32; 4]; 4],
 }
 
 /// Controls the visible area of the text. Any text outside of the visible area will be clipped.
@@ -122,6 +126,11 @@ pub struct TextArea<'a> {
     pub default_color: Color,
     /// Additional custom glyphs to render.
     pub custom_glyphs: &'a [CustomGlyph],
+    /// A 3D transform to apply to this text area. When set to anything other than
+    /// `Mat4::IDENTITY`, CPU-side clipping is skipped and the GPU handles clipping.
+    pub transform: glam::Mat4,
+    /// A zoom factor to apply to this text area. Applied before `transform`.
+    pub zoom: f32,
 }
 
 pub(crate) struct State<'a> {

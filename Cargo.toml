@@ -13,6 +13,7 @@ etagere = "0.2.15"
 cosmic-text = "0.15"
 lru = { version = "0.16.2", default-features = false }
 rustc-hash = "2.1.1"
+glam = { version = "0.32", features = ["bytemuck"] }
 
 [dev-dependencies]
 winit = "0.30.12"

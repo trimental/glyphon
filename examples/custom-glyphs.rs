@@ -1,7 +1,7 @@
 use glyphon::{
-    Attrs, Buffer, Cache, Color, ContentType, CustomGlyph, Family, FontSystem, Metrics,
-    RasterizeCustomGlyphRequest, RasterizedCustomGlyph, Resolution, Shaping, SwashCache, TextArea,
-    TextAtlas, TextBounds, TextRenderer, Viewport,
+    Attrs, Buffer, Cache, CameraUniform, Color, ContentType, CustomGlyph, Family, FontSystem,
+    Mat4, Metrics, RasterizeCustomGlyphRequest, RasterizedCustomGlyph, Resolution, Shaping,
+    SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
 };
 use std::sync::Arc;
 use wgpu::{
@@ -219,6 +219,7 @@ impl winit::application::ApplicationHandler for Application {
                         width: surface_config.width,
                         height: surface_config.height,
                     },
+                    CameraUniform::default(),
                 );
 
                 text_renderer
@@ -240,6 +241,8 @@ impl winit::application::ApplicationHandler for Application {
                                 bottom: 180,
                             },
                             default_color: Color::rgb(255, 255, 255),
+                            transform: Mat4::IDENTITY,
+                            zoom: 1.0,
                             custom_glyphs: &[
                                 CustomGlyph {
                                     id: 0,

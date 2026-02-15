@@ -1,6 +1,5 @@
 struct VertexInput {
-    @builtin(vertex_index) vertex_idx: u32,
-    @location(0) pos: vec2<i32>,
+    @location(0) pos: vec3<f32>,
     @location(1) dim: u32,
     @location(2) uv: u32,
     @location(3) color: u32,
@@ -18,6 +17,7 @@ struct VertexOutput {
 struct Params {
     screen_resolution: vec2<u32>,
     _pad: vec2<u32>,
+    view_proj: mat4x4<f32>,
 };
 
 @group(0) @binding(0)
@@ -42,32 +42,13 @@ fn srgb_to_linear(c: f32) -> f32 {
 
 @vertex
 fn vs_main(in_vert: VertexInput) -> VertexOutput {
-    var pos = in_vert.pos;
-    let width = in_vert.dim & 0xffffu;
-    let height = (in_vert.dim & 0xffff0000u) >> 16u;
     let color = in_vert.color;
-    var uv = vec2<u32>(in_vert.uv & 0xffffu, (in_vert.uv & 0xffff0000u) >> 16u);
-    let v = in_vert.vertex_idx;
-
-    let corner_position = vec2<u32>(
-        in_vert.vertex_idx & 1u,
-        (in_vert.vertex_idx >> 1u) & 1u,
-    );
-
-    let corner_offset = vec2<u32>(width, height) * corner_position;
-
-    uv = uv + corner_offset;
-    pos = pos + vec2<i32>(corner_offset);
+    let uv = vec2<u32>(in_vert.uv & 0xffffu, (in_vert.uv & 0xffff0000u) >> 16u);
 
     var vert_output: VertexOutput;
 
-    vert_output.position = vec4<f32>(
-        2.0 * vec2<f32>(pos) / vec2<f32>(params.screen_resolution) - 1.0,
-        in_vert.depth,
-        1.0,
-    );
-
-    vert_output.position.y *= -1.0;
+    // Position is pre-transformed on CPU: pos.xy = clip x/y, pos.z = clip w, depth = clip z
+    vert_output.position = vec4<f32>(in_vert.pos.xy, in_vert.depth, in_vert.pos.z);
 
     let content_type = in_vert.content_type_with_srgb & 0xffffu;
     let srgb = (in_vert.content_type_with_srgb & 0xffff0000u) >> 16u;
@@ -92,14 +73,14 @@ fn vs_main(in_vert: VertexInput) -> VertexOutput {
         default: {}
     }
 
-    var dim: vec2<u32> = vec2(0u);
+    var atlas_dim: vec2<u32> = vec2(0u);
     switch content_type {
         case 0u: {
-            dim = textureDimensions(color_atlas_texture);
+            atlas_dim = textureDimensions(color_atlas_texture);
             break;
         }
         case 1u: {
-            dim = textureDimensions(mask_atlas_texture);
+            atlas_dim = textureDimensions(mask_atlas_texture);
             break;
         }
         default: {}
@@ -107,7 +88,7 @@ fn vs_main(in_vert: VertexInput) -> VertexOutput {
 
     vert_output.content_type = content_type;
 
-    vert_output.uv = vec2<f32>(uv) / vec2<f32>(dim);
+    vert_output.uv = vec2<f32>(uv) / vec2<f32>(atlas_dim);
 
     return vert_output;
 }

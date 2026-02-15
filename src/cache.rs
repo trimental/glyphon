@@ -62,36 +62,36 @@ impl Cache {
 
         let vertex_buffer_layout = wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<GlyphToRender>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Instance,
+            step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttribute {
-                    format: VertexFormat::Sint32x2,
+                    format: VertexFormat::Float32x3,
                     offset: 0,
                     shader_location: 0,
                 },
                 wgpu::VertexAttribute {
                     format: VertexFormat::Uint32,
-                    offset: mem::size_of::<u32>() as u64 * 2,
+                    offset: 12,
                     shader_location: 1,
                 },
                 wgpu::VertexAttribute {
                     format: VertexFormat::Uint32,
-                    offset: mem::size_of::<u32>() as u64 * 3,
+                    offset: 16,
                     shader_location: 2,
                 },
                 wgpu::VertexAttribute {
                     format: VertexFormat::Uint32,
-                    offset: mem::size_of::<u32>() as u64 * 4,
+                    offset: 20,
                     shader_location: 3,
                 },
                 wgpu::VertexAttribute {
                     format: VertexFormat::Uint32,
-                    offset: mem::size_of::<u32>() as u64 * 5,
+                    offset: 24,
                     shader_location: 4,
                 },
                 wgpu::VertexAttribute {
                     format: VertexFormat::Float32,
-                    offset: mem::size_of::<u32>() as u64 * 6,
+                    offset: 28,
                     shader_location: 5,
                 },
             ],
@@ -238,7 +238,7 @@ impl Cache {
                         compilation_options: PipelineCompilationOptions::default(),
                     }),
                     primitive: PrimitiveState {
-                        topology: PrimitiveTopology::TriangleStrip,
+                        topology: PrimitiveTopology::TriangleList,
                         ..Default::default()
                     },
                     depth_stencil: depth_stencil.clone(),

@@ -2,6 +2,23 @@ use crate::{Cache, Params, Resolution};
 use std::{mem, slice};
 use wgpu::{BindGroup, Buffer, BufferDescriptor, BufferUsages, Device, Queue};
 
+/// A camera uniform containing the view-projection matrix.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct CameraUniform {
+    /// The view-projection matrix. Use `glam::Mat4::IDENTITY.to_cols_array_2d()` for no
+    /// camera transformation.
+    pub view_proj: [[f32; 4]; 4],
+}
+
+impl Default for CameraUniform {
+    fn default() -> Self {
+        Self {
+            view_proj: glam::Mat4::IDENTITY.to_cols_array_2d(),
+        }
+    }
+}
+
 /// Controls the visible area of all text for a given renderer. Any text outside of the visible
 /// area will be clipped.
 ///
@@ -10,7 +27,7 @@ use wgpu::{BindGroup, Buffer, BufferDescriptor, BufferUsages, Device, Queue};
 /// bound each `TextArea`).
 #[derive(Debug)]
 pub struct Viewport {
-    params: Params,
+    pub(crate) params: Params,
     params_buffer: Buffer,
     pub(crate) bind_group: BindGroup,
 }
@@ -24,6 +41,7 @@ impl Viewport {
                 height: 0,
             },
             _pad: [0, 0],
+            view_proj: glam::Mat4::IDENTITY.to_cols_array_2d(),
         };
 
         let params_buffer = device.create_buffer(&BufferDescriptor {
@@ -42,18 +60,17 @@ impl Viewport {
         }
     }
 
-    /// Updates the `Viewport` with the given `resolution`.
-    pub fn update(&mut self, queue: &Queue, resolution: Resolution) {
-        if self.params.screen_resolution != resolution {
-            self.params.screen_resolution = resolution;
+    /// Updates the `Viewport` with the given `resolution` and `camera`.
+    pub fn update(&mut self, queue: &Queue, resolution: Resolution, camera: CameraUniform) {
+        self.params.screen_resolution = resolution;
+        self.params.view_proj = camera.view_proj;
 
-            queue.write_buffer(&self.params_buffer, 0, unsafe {
-                slice::from_raw_parts(
-                    &self.params as *const Params as *const u8,
-                    mem::size_of::<Params>(),
-                )
-            });
-        }
+        queue.write_buffer(&self.params_buffer, 0, unsafe {
+            slice::from_raw_parts(
+                &self.params as *const Params as *const u8,
+                mem::size_of::<Params>(),
+            )
+        });
     }
 
     /// Returns the current resolution of the `Viewport`.

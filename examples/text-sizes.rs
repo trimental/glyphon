@@ -1,6 +1,7 @@
 use glyphon::{
-    Attrs, Buffer, Cache, Color, ColorMode, Family, FontSystem, Metrics, Resolution, Shaping,
-    SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport, Weight,
+    Attrs, Buffer, Cache, CameraUniform, Color, ColorMode, Family, FontSystem, Mat4, Metrics,
+    Resolution, Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
+    Weight,
 };
 use std::sync::Arc;
 use wgpu::{
@@ -220,6 +221,7 @@ impl winit::application::ApplicationHandler for Application {
                         width: surface_config.width,
                         height: surface_config.height,
                     },
+                    CameraUniform::default(),
                 );
 
                 let scale_factor = *scale_factor;
@@ -246,6 +248,8 @@ impl winit::application::ApplicationHandler for Application {
                             },
                             default_color: FONT_COLOR,
                             custom_glyphs: &[],
+                            transform: Mat4::IDENTITY,
+                            zoom: 1.0,
                         };
 
                         let total_lines = b

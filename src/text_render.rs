@@ -1,10 +1,10 @@
 use crate::{
     custom_glyph::CustomGlyphCacheKey, ColorMode, ContentType, FontSystem, GlyphDetails,
     GlyphToRender, GpuCacheStatus, PrepareError, RasterizeCustomGlyphRequest,
-    RasterizedCustomGlyph, RenderError, State, SwashCache, SwashContent, TextArea, TextAtlas,
+    RasterizedCustomGlyph, RenderError, State, SwashCache, TextArea, TextAtlas,
     Viewport,
 };
-use cosmic_text::{Color, SubpixelBin};
+use cosmic_text::{Color, SubpixelBin, SwashContent};
 use std::slice;
 use wgpu::{
     Buffer, BufferDescriptor, BufferUsages, DepthStencilState, Device, Extent3d, MultisampleState,
@@ -16,8 +16,11 @@ use wgpu::{
 pub struct TextRenderer {
     vertex_buffer: Buffer,
     vertex_buffer_size: u64,
+    index_buffer: Buffer,
+    index_buffer_size: u64,
     pipeline: RenderPipeline,
     glyph_vertices: Vec<GlyphToRender>,
+    glyph_indices: Vec<u32>,
 }
 
 impl TextRenderer {
@@ -36,13 +39,24 @@ impl TextRenderer {
             mapped_at_creation: false,
         });
 
+        let index_buffer_size = next_copy_buffer_size(4096);
+        let index_buffer = device.create_buffer(&BufferDescriptor {
+            label: Some("glyphon indices"),
+            size: index_buffer_size,
+            usage: BufferUsages::INDEX | BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
         let pipeline = atlas.get_or_create_pipeline(device, multisample, depth_stencil);
 
         Self {
             vertex_buffer,
             vertex_buffer_size,
+            index_buffer,
+            index_buffer_size,
             pipeline,
             glyph_vertices: Vec::new(),
+            glyph_indices: Vec::new(),
         }
     }
 
@@ -136,6 +150,7 @@ impl TextRenderer {
         ) -> Option<RasterizedCustomGlyph>,
     ) -> Result<(), PrepareError> {
         self.glyph_vertices.clear();
+        self.glyph_indices.clear();
 
         let state = State { device, queue };
         let mut system = GlyphSystem {
@@ -144,17 +159,37 @@ impl TextRenderer {
             font_system,
         };
         let resolution = viewport.resolution();
+        let view_proj = glam::Mat4::from_cols_array_2d(&viewport.params.view_proj);
+        let res_w = resolution.width as f32;
+        let res_h = resolution.height as f32;
 
         for text_area in text_areas {
-            let bounds = GlyphBounds {
-                x: Bounds {
-                    min: text_area.bounds.left.max(0),
-                    max: text_area.bounds.right.min(resolution.width as i32),
-                },
-                y: Bounds {
-                    min: text_area.bounds.top.max(0),
-                    max: text_area.bounds.bottom.min(resolution.height as i32),
-                },
+            let is_identity =
+                text_area.transform == glam::Mat4::IDENTITY && text_area.zoom == 1.0;
+
+            let bounds = if is_identity {
+                GlyphBounds {
+                    x: Bounds {
+                        min: text_area.bounds.left.max(0),
+                        max: text_area.bounds.right.min(resolution.width as i32),
+                    },
+                    y: Bounds {
+                        min: text_area.bounds.top.max(0),
+                        max: text_area.bounds.bottom.min(resolution.height as i32),
+                    },
+                }
+            } else {
+                // Skip CPU clipping for transformed text; GPU handles it
+                GlyphBounds {
+                    x: Bounds {
+                        min: i32::MIN / 2,
+                        max: i32::MAX / 2,
+                    },
+                    y: Bounds {
+                        min: i32::MIN / 2,
+                        max: i32::MAX / 2,
+                    },
+                }
             };
 
             for glyph in text_area.custom_glyphs.iter() {
@@ -229,11 +264,23 @@ impl TextRenderer {
                     &mut metadata_to_depth,
                     &mut rasterize_custom_glyph,
                 )? {
-                    self.glyph_vertices.push(glyph_to_render);
+                    expand_glyph(
+                        glyph_to_render,
+                        is_identity,
+                        &text_area,
+                        &view_proj,
+                        res_w,
+                        res_h,
+                        &mut self.glyph_vertices,
+                        &mut self.glyph_indices,
+                    );
                 }
             }
 
             let is_run_visible = |run: &cosmic_text::LayoutRun| {
+                if !is_identity {
+                    return true;
+                }
                 let start_y_physical = (text_area.top + (run.line_top * text_area.scale)) as i32;
                 let end_y_physical = start_y_physical + (run.line_height * text_area.scale) as i32;
 
@@ -296,17 +343,27 @@ impl TextRenderer {
                         &mut metadata_to_depth,
                         &mut rasterize_custom_glyph,
                     )? {
-                        self.glyph_vertices.push(glyph_to_render);
+                        expand_glyph(
+                            glyph_to_render,
+                            is_identity,
+                            &text_area,
+                            &view_proj,
+                            res_w,
+                            res_h,
+                            &mut self.glyph_vertices,
+                            &mut self.glyph_indices,
+                        );
                     }
                 }
             }
         }
 
-        let will_render = !self.glyph_vertices.is_empty();
+        let will_render = !self.glyph_indices.is_empty();
         if !will_render {
             return Ok(());
         }
 
+        // Upload vertex buffer
         let vertices = self.glyph_vertices.as_slice();
         let vertices_raw = unsafe {
             slice::from_raw_parts(
@@ -331,6 +388,31 @@ impl TextRenderer {
             self.vertex_buffer_size = buffer_size;
         }
 
+        // Upload index buffer
+        let indices = self.glyph_indices.as_slice();
+        let indices_raw = unsafe {
+            slice::from_raw_parts(
+                indices as *const _ as *const u8,
+                std::mem::size_of_val(indices),
+            )
+        };
+
+        if self.index_buffer_size >= indices_raw.len() as u64 {
+            queue.write_buffer(&self.index_buffer, 0, indices_raw);
+        } else {
+            self.index_buffer.destroy();
+
+            let (buffer, buffer_size) = create_oversized_buffer(
+                device,
+                Some("glyphon indices"),
+                indices_raw,
+                BufferUsages::INDEX | BufferUsages::COPY_DST,
+            );
+
+            self.index_buffer = buffer;
+            self.index_buffer_size = buffer_size;
+        }
+
         Ok(())
     }
 
@@ -341,7 +423,7 @@ impl TextRenderer {
         viewport: &Viewport,
         pass: &mut RenderPass<'_>,
     ) -> Result<(), RenderError> {
-        if self.glyph_vertices.is_empty() {
+        if self.glyph_indices.is_empty() {
             return Ok(());
         }
 
@@ -349,7 +431,8 @@ impl TextRenderer {
         pass.set_bind_group(0, &atlas.bind_group, &[]);
         pass.set_bind_group(1, &viewport.bind_group, &[]);
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        pass.draw(0..4, 0..self.glyph_vertices.len() as u32);
+        pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        pass.draw_indexed(0..self.glyph_indices.len() as u32, 0, 0..1);
 
         Ok(())
     }
@@ -393,6 +476,87 @@ fn create_oversized_buffer(
 
 fn zero_depth(_: usize) -> f32 {
     0f32
+}
+
+/// Expands a single base glyph (from `prepare_glyph`) into 4 corner vertices and 6 indices.
+fn expand_glyph(
+    glyph: GlyphToRender,
+    is_identity: bool,
+    text_area: &TextArea,
+    view_proj: &glam::Mat4,
+    res_w: f32,
+    res_h: f32,
+    vertices: &mut Vec<GlyphToRender>,
+    indices: &mut Vec<u32>,
+) {
+    let base_i = vertices.len() as u32;
+
+    let gx = glyph.pos[0];
+    let gy = glyph.pos[1];
+    let gw = glyph.dim[0] as f32;
+    let gh = glyph.dim[1] as f32;
+
+    // 4 corner pixel positions: TL, TR, BR, BL
+    let corners_px = [
+        (gx, gy),
+        (gx + gw, gy),
+        (gx + gw, gy + gh),
+        (gx, gy + gh),
+    ];
+
+    // 4 corner atlas UVs (pixel coordinates into the atlas)
+    let corners_uv: [[u16; 2]; 4] = [
+        [glyph.uv[0], glyph.uv[1]],
+        [glyph.uv[0] + glyph.dim[0], glyph.uv[1]],
+        [glyph.uv[0] + glyph.dim[0], glyph.uv[1] + glyph.dim[1]],
+        [glyph.uv[0], glyph.uv[1] + glyph.dim[1]],
+    ];
+
+    for i in 0..4 {
+        let (px, py) = corners_px[i];
+
+        let clip = if !is_identity {
+            // Transform relative to text_area origin
+            let local_x = px - text_area.left;
+            let local_y = py - text_area.top;
+
+            // Apply zoom then transform to world space
+            let world_pos = text_area.transform
+                * glam::Vec4::new(
+                    local_x * text_area.zoom,
+                    local_y * text_area.zoom,
+                    glyph.depth,
+                    1.0,
+                );
+
+            // view_proj maps directly from world space to clip space
+            *view_proj * world_pos
+        } else {
+            // Screen-space text: convert pixel coords to NDC
+            let ndc_x = 2.0 * px / res_w - 1.0;
+            let ndc_y = 1.0 - 2.0 * py / res_h;
+            *view_proj * glam::Vec4::new(ndc_x, ndc_y, glyph.depth, 1.0)
+        };
+
+        vertices.push(GlyphToRender {
+            pos: [clip.x, clip.y, clip.w],
+            dim: glyph.dim,
+            uv: corners_uv[i],
+            color: glyph.color,
+            content_type_with_srgb: glyph.content_type_with_srgb,
+            depth: clip.z,
+        });
+    }
+
+    // Two triangles: (TL, TR, BR) and (TL, BR, BL)
+    indices.extend_from_slice(&[
+        base_i,
+        base_i + 1,
+        base_i + 2,
+        base_i,
+        base_i + 2,
+        base_i + 3,
+    ]);
 }
 
 struct GetGlyphImageResult {
@@ -603,7 +767,7 @@ where
     let depth = metadata_to_depth(metadata.metadata);
 
     Ok(Some(GlyphToRender {
-        pos: [x, y],
+        pos: [x as f32, y as f32, 0.0],
         dim: [width as u16, height as u16],
         uv: [atlas_x, atlas_y],
         color: metadata.color.0,
