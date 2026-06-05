@@ -322,12 +322,29 @@ impl TextRenderer {
                                 .cache
                                 .get_image_uncached(system.font_system, physical_glyph.cache_key)?;
 
-                            let content_type = match image.content {
-                                SwashContent::Color => ContentType::Color,
-                                SwashContent::Mask => ContentType::Mask,
+                            let (content_type, data) = match image.content {
+                                SwashContent::Color => (ContentType::Color, image.data),
+                                SwashContent::Mask => (ContentType::Mask, image.data),
                                 SwashContent::SubpixelMask => {
-                                    // Not implemented yet, but don't panic if this happens.
-                                    ContentType::Mask
+                                    let width = image.placement.width as usize;
+                                    let height = image.placement.height as usize;
+                                    let pixel_count = width.saturating_mul(height);
+                                    let mut data = image.data;
+                                    if pixel_count > 0
+                                        && data.len() >= pixel_count
+                                        && data.len().is_multiple_of(pixel_count)
+                                    {
+                                        let channels = data.len() / pixel_count;
+                                        if channels > 1 {
+                                            let mut alpha = Vec::with_capacity(pixel_count);
+                                            for px in data.chunks_exact(channels) {
+                                                // Convert subpixel coverage to alpha coverage.
+                                                alpha.push(*px.iter().max().unwrap_or(&0));
+                                            }
+                                            data = alpha;
+                                        }
+                                    }
+                                    (ContentType::Mask, data)
                                 }
                             };
 
@@ -337,7 +354,7 @@ impl TextRenderer {
                                 left: image.placement.left as i16,
                                 width: image.placement.width as u16,
                                 height: image.placement.height as u16,
-                                data: image.data,
+                                data,
                             })
                         },
                         &mut metadata_to_depth,
@@ -505,11 +522,15 @@ fn expand_glyph(
     ];
 
     // 4 corner atlas UVs (pixel coordinates into the atlas)
+    // Sample texel centers (handled in shader via +0.5 offset) to avoid
+    // boundary artifacts from edge sampling at glyph atlas borders.
+    let uv_right = glyph.uv[0].saturating_add(glyph.dim[0].saturating_sub(1));
+    let uv_bottom = glyph.uv[1].saturating_add(glyph.dim[1].saturating_sub(1));
     let corners_uv: [[u16; 2]; 4] = [
         [glyph.uv[0], glyph.uv[1]],
-        [glyph.uv[0] + glyph.dim[0], glyph.uv[1]],
-        [glyph.uv[0] + glyph.dim[0], glyph.uv[1] + glyph.dim[1]],
-        [glyph.uv[0], glyph.uv[1] + glyph.dim[1]],
+        [uv_right, glyph.uv[1]],
+        [uv_right, uv_bottom],
+        [glyph.uv[0], uv_bottom],
     ];
 
     for i in 0..4 {

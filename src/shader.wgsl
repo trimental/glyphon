@@ -48,7 +48,8 @@ fn vs_main(in_vert: VertexInput) -> VertexOutput {
     var vert_output: VertexOutput;
 
     // Position is pre-transformed on CPU: pos.xy = clip x/y, pos.z = clip w, depth = clip z
-    vert_output.position = vec4<f32>(in_vert.pos.xy, in_vert.depth, in_vert.pos.z);
+    // Keep text depth centered to avoid clipping when camera zooms very close.
+    vert_output.position = vec4<f32>(in_vert.pos.xy, 0.0, in_vert.pos.z);
 
     let content_type = in_vert.content_type_with_srgb & 0xffffu;
     let srgb = (in_vert.content_type_with_srgb & 0xffff0000u) >> 16u;
@@ -88,7 +89,8 @@ fn vs_main(in_vert: VertexInput) -> VertexOutput {
 
     vert_output.content_type = content_type;
 
-    vert_output.uv = vec2<f32>(uv) / vec2<f32>(atlas_dim);
+    // UVs are provided as integer texel coordinates; offset to texel centers.
+    vert_output.uv = (vec2<f32>(uv) + vec2<f32>(0.5, 0.5)) / vec2<f32>(atlas_dim);
 
     return vert_output;
 }

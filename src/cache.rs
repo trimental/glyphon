@@ -47,8 +47,9 @@ impl Cache {
     pub fn new(device: &Device) -> Self {
         let sampler = device.create_sampler(&SamplerDescriptor {
             label: Some("glyphon sampler"),
-            min_filter: FilterMode::Nearest,
-            mag_filter: FilterMode::Nearest,
+            // Linear sampling avoids minification aliasing artifacts on glyph edges.
+            min_filter: FilterMode::Linear,
+            mag_filter: FilterMode::Linear,
             mipmap_filter: MipmapFilterMode::Nearest,
             lod_min_clamp: 0f32,
             lod_max_clamp: 0f32,
