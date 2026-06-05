@@ -11,12 +11,12 @@ license = "MIT OR Apache-2.0 OR Zlib"
 wgpu = { version = "28.0.0", default-features = false, features = ["wgsl"] }
 etagere = "0.2.15"
 cosmic-text = "0.15"
-lru = { version = "0.16.2", default-features = false }
-rustc-hash = "2.1.1"
-glam = { version = "0.32", features = ["bytemuck"] }
+lru = { version = "0.16.4", default-features = false }
+rustc-hash = "2.1.2"
+glam = { version = "0.32.1", features = ["bytemuck"] }
 
 [dev-dependencies]
-winit = "0.30.12"
+winit = "0.30.13"
 wgpu = "28.0.0"
 resvg = { version = "0.45.1", default-features = false }
 pollster = "0.4.0"
