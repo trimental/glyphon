@@ -5,7 +5,7 @@ use glyphon::{
 };
 use std::sync::Arc;
 use wgpu::{
-    CommandEncoderDescriptor, CompositeAlphaMode, DeviceDescriptor, Instance, InstanceDescriptor,
+    CommandEncoderDescriptor, CompositeAlphaMode, DeviceDescriptor, Instance,
     LoadOp, MultisampleState, Operations, PresentMode, RenderPassColorAttachment,
     RenderPassDescriptor, RequestAdapterOptions, SurfaceConfiguration, TextureFormat,
     TextureUsages, TextureViewDescriptor,
@@ -63,7 +63,7 @@ impl WindowState {
         let scale_factor = window.scale_factor() as f32;
 
         // Set up surface
-        let instance = Instance::new(&InstanceDescriptor::default());
+        let instance = Instance::new(wgpu::InstanceDescriptor::new_without_display_handle());
         let adapter = instance
             .request_adapter(&RequestAdapterOptions::default())
             .await
@@ -116,10 +116,9 @@ impl WindowState {
                 let mut text_buffer =
                     Buffer::new(&mut font_system, Metrics::relative(s, LINE_HEIGHT));
 
-                text_buffer.set_size(&mut font_system, Some(logical_width - 20.0), None);
+                text_buffer.set_size(Some(logical_width - 20.0), None);
 
                 text_buffer.set_text(
-                    &mut font_system,
                     &format!("size {s}: {TEXT}"),
                     &attrs,
                     shaping,
@@ -210,7 +209,7 @@ impl winit::application::ApplicationHandler for Application {
                 let logical_width = size.width as f32 / *scale_factor;
 
                 for b in buffers.iter_mut() {
-                    b.set_size(font_system, Some(logical_width - 20.0), None);
+                    b.set_size(Some(logical_width - 20.0), None);
                     b.shape_until_scroll(font_system, false);
                 }
             }
@@ -274,7 +273,11 @@ impl winit::application::ApplicationHandler for Application {
                     )
                     .unwrap();
 
-                let frame = surface.get_current_texture().unwrap();
+                let frame = match surface.get_current_texture() {
+                    wgpu::CurrentSurfaceTexture::Success(frame)
+                    | wgpu::CurrentSurfaceTexture::Suboptimal(frame) => frame,
+                    _ => return,
+                };
                 let view = frame.texture.create_view(&TextureViewDescriptor::default());
                 let mut encoder =
                     device.create_command_encoder(&CommandEncoderDescriptor { label: None });
