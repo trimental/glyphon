@@ -4,10 +4,10 @@ use glyphon::{
 };
 use std::sync::Arc;
 use wgpu::{
-    CommandEncoderDescriptor, CompositeAlphaMode, DeviceDescriptor, Instance,
-    LoadOp, MultisampleState, Operations, PresentMode, RenderPassColorAttachment,
-    RenderPassDescriptor, RequestAdapterOptions, SurfaceConfiguration, TextureFormat,
-    TextureUsages, TextureViewDescriptor,
+    CommandEncoderDescriptor, CompositeAlphaMode, DeviceDescriptor, Instance, LoadOp,
+    MultisampleState, Operations, PresentMode, RenderPassColorAttachment, RenderPassDescriptor,
+    RequestAdapterOptions, SurfaceConfiguration, TextureFormat, TextureUsages,
+    TextureViewDescriptor,
 };
 use winit::{dpi::LogicalSize, event::WindowEvent, event_loop::EventLoop, window::Window};
 

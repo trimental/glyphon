@@ -1,14 +1,14 @@
 use glyphon::{
-    Attrs, Buffer, Cache, CameraUniform, Color, ContentType, CustomGlyph, Family, FontSystem,
-    Mat4, Metrics, RasterizeCustomGlyphRequest, RasterizedCustomGlyph, Resolution, Shaping,
-    SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
+    Attrs, Buffer, Cache, CameraUniform, Color, ContentType, CustomGlyph, Family, FontSystem, Mat4,
+    Metrics, RasterizeCustomGlyphRequest, RasterizedCustomGlyph, Resolution, Shaping, SwashCache,
+    TextArea, TextAtlas, TextBounds, TextRenderer, Viewport,
 };
 use std::sync::Arc;
 use wgpu::{
-    CommandEncoderDescriptor, CompositeAlphaMode, DeviceDescriptor, Instance,
-    LoadOp, MultisampleState, Operations, PresentMode, RenderPassColorAttachment,
-    RenderPassDescriptor, RequestAdapterOptions, SurfaceConfiguration, TextureFormat,
-    TextureUsages, TextureViewDescriptor,
+    CommandEncoderDescriptor, CompositeAlphaMode, DeviceDescriptor, Instance, LoadOp,
+    MultisampleState, Operations, PresentMode, RenderPassColorAttachment, RenderPassDescriptor,
+    RequestAdapterOptions, SurfaceConfiguration, TextureFormat, TextureUsages,
+    TextureViewDescriptor,
 };
 use winit::{dpi::LogicalSize, event::WindowEvent, event_loop::EventLoop, window::Window};
 

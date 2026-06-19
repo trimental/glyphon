@@ -5,10 +5,10 @@ use glyphon::{
 };
 use std::sync::Arc;
 use wgpu::{
-    CommandEncoderDescriptor, CompositeAlphaMode, DeviceDescriptor, Instance,
-    LoadOp, MultisampleState, Operations, PresentMode, RenderPassColorAttachment,
-    RenderPassDescriptor, RequestAdapterOptions, SurfaceConfiguration, TextureFormat,
-    TextureUsages, TextureViewDescriptor,
+    CommandEncoderDescriptor, CompositeAlphaMode, DeviceDescriptor, Instance, LoadOp,
+    MultisampleState, Operations, PresentMode, RenderPassColorAttachment, RenderPassDescriptor,
+    RequestAdapterOptions, SurfaceConfiguration, TextureFormat, TextureUsages,
+    TextureViewDescriptor,
 };
 use winit::{
     dpi::{LogicalSize, PhysicalSize},
@@ -118,12 +118,7 @@ impl WindowState {
 
                 text_buffer.set_size(Some(logical_width - 20.0), None);
 
-                text_buffer.set_text(
-                    &format!("size {s}: {TEXT}"),
-                    &attrs,
-                    shaping,
-                    None,
-                );
+                text_buffer.set_text(&format!("size {s}: {TEXT}"), &attrs, shaping, None);
 
                 text_buffer.shape_until_scroll(&mut font_system, false);
 

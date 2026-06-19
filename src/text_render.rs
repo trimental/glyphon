@@ -1,8 +1,7 @@
 use crate::{
     custom_glyph::CustomGlyphCacheKey, ColorMode, ContentType, FontSystem, GlyphDetails,
     GlyphToRender, GpuCacheStatus, PrepareError, RasterizeCustomGlyphRequest,
-    RasterizedCustomGlyph, RenderError, State, SwashCache, TextArea, TextAtlas,
-    Viewport,
+    RasterizedCustomGlyph, RenderError, State, SwashCache, TextArea, TextAtlas, Viewport,
 };
 use cosmic_text::{Color, SubpixelBin, SwashContent};
 use std::slice;
@@ -164,8 +163,7 @@ impl TextRenderer {
         let res_h = resolution.height as f32;
 
         for text_area in text_areas {
-            let is_identity =
-                text_area.transform == glam::Mat4::IDENTITY && text_area.zoom == 1.0;
+            let is_identity = text_area.transform == glam::Mat4::IDENTITY && text_area.zoom == 1.0;
 
             let bounds = if is_identity {
                 GlyphBounds {
@@ -518,12 +516,7 @@ fn expand_glyph(
     let gh = glyph.dim[1] as f32;
 
     // 4 corner pixel positions: TL, TR, BR, BL
-    let corners_px = [
-        (gx, gy),
-        (gx + gw, gy),
-        (gx + gw, gy + gh),
-        (gx, gy + gh),
-    ];
+    let corners_px = [(gx, gy), (gx + gw, gy), (gx + gw, gy + gh), (gx, gy + gh)];
 
     // 4 corner atlas UVs (pixel coordinates into the atlas)
     // Sample texel centers (handled in shader via +0.5 offset) to avoid
